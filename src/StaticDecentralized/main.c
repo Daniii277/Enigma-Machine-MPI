@@ -1,6 +1,6 @@
-#include <iostream>
+#include <stdio.h>
 #include <mpi.h>
-#include "enigma.h"
+#include "../include/enigma.h"
 
 
 //int ciphered[nLines][nCharsPerLine] = { //[51][155] 8 rotores
@@ -107,8 +107,48 @@ int ciphered[nLines][nCharsPerLine] = { //[9][33] - 2 rotores
 };
 
 
-int main(int argc, char* argv[])
-{
+void enigma(){
+	printf("ESTO ES LA ENTRADA: \n");
+	printNumbersAsString(ciphered);
+	printf("\n");
+	printf("\n");
+
+	printf("DESCIFRANDO...: \n");
+	int deciphered[nLines][nCharsPerLine];
+	for (int idx = 0; idx < nLines; idx++)
+	{
+		for (int lineKey = (int)pow(10, nRotors - 1); lineKey < (int)pow(10, nRotors); lineKey++)
+		{
+			int* p_deciphered = decipher(ciphered[idx], lineKey);
+			
+			char decipheredLine[nCharsPerLine];
+			for (int idx = 0; idx < nCharsPerLine; idx++)
+			{
+				decipheredLine[idx] = p_deciphered[idx];
+			}
+			
+			char stringKey[nRotors + 1];
+			sprintf_s(stringKey, "%d", lineKey);
+			if (!strncmp(stringKey, decipheredLine, nRotors))
+			{
+				for (int idx2 = 0; idx2 < nCharsPerLine; idx2++)
+				{
+					deciphered[idx][idx2] = decipheredLine[idx2];
+				}
+				printf("Descifrada linea %d con clave %d\n", idx, lineKey);
+				break;
+			}
+		}
+	}
+	
+	printf("\n");
+	printf("ESTO ES LA SALIDA:\n");
+	printNumbersAsString(deciphered);
+	printf("\n");
+	printf("\n");
+}
+
+int main(int argc, char* argv[]){
 
 	enigma();
 	

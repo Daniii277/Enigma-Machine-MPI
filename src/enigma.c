@@ -49,7 +49,7 @@ int* decipher(int line[], int key)
 	return rawData;
 }
 
-void enigma()
+void enigma(int ciphered[])
 {
 	printf("ESTO ES LA ENTRADA: \n");
 	printNumbersAsString(ciphered);
