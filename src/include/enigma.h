@@ -3,5 +3,5 @@
 
 void printNumbersAsString(int lines[nLines][nCharsPerLine]);
 
-int* decipher(int line[], int key);
+void decipher(const int *line, int key, int *result);
 
