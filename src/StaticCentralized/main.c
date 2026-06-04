@@ -168,30 +168,34 @@ int main(int argc, char* argv[]){
 			if(worker < extra) firstLine = (i - 1) * (linesPerWorker + 1);
 			else firstLine = extra * (linesPerWorker + 1) + (i - 1 - extra) * linesPerWorker;
 
-			MPI_Send(&ciphered[firstLine], numLines * nCharsPerLine, MPI_INT, i, TAG_WORK, MPI_COMM_WORLD);
 			MPI_Send(&numLines, 1, MPI_INT, i, TAG_INFO, MPI_COMM_WORLD);
+			MPI_Send(&ciphered[firstLine], numLines * nCharsPerLine, MPI_INT, i, TAG_WORK, MPI_COMM_WORLD);
+			
 		}
 	}
 	//Workers code
 	if(rank != 0){
-		int deciphered[nLines][nCharsPerLine];
-		for (int idx = 0; idx < nLines; idx++){
-			for (int lineKey = (int)pow(10, nRotors - 1); lineKey < (int)pow(10, nRotors); lineKey++)
-			{
-				int* p_deciphered = decipher(ciphered[idx], lineKey);
+		int local_numLines;
+		MPI_Recv(&local_numLines, 1, MPI_INT, 0, TAG_INFO, MPI_COMM_WORLD);
+		int local_ciphered[local_numLines][nCharsPerLine];
+		int local_messageSize = local_numLines * nCharsPerLine;
+		MPI_Recv(&local_ciphered,local_messageSize, MPI_INT, 0, TAG_WORK, MPI_COMM_WORLD);
+		int deciphered[local_numLines][nCharsPerLine];
+		
+		for (int idx = 0; idx < local_numLines; idx++){
+			for (int lineKey = (int)pow(10, nRotors - 1); lineKey < (int)pow(10, nRotors); lineKey++){
+				int p_deciphered[nCharsPerLine];
+				decipher(local_ciphered[idx], lineKey, p_deciphered);
 				
 				char decipheredLine[nCharsPerLine];
-				for (int idx = 0; idx < nCharsPerLine; idx++)
-				{
+				for (int idx = 0; idx < nCharsPerLine; idx++){
 					decipheredLine[idx] = p_deciphered[idx];
 				}
 				
 				char stringKey[nRotors + 1];
 				sprintf_s(stringKey, "%d", lineKey);
-				if (!strncmp(stringKey, decipheredLine, nRotors))
-				{
-					for (int idx2 = 0; idx2 < nCharsPerLine; idx2++)
-					{
+				if (!strncmp(stringKey, decipheredLine, nRotors)){
+					for (int idx2 = 0; idx2 < nCharsPerLine; idx2++){
 						deciphered[idx][idx2] = decipheredLine[idx2];
 					}
 					printf("Descifrada linea %d con clave %d\n", idx, lineKey);
