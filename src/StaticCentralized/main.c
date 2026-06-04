@@ -154,7 +154,25 @@ int main(int argc, char* argv[]){
 	int rank, size;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
-	enigma();
+	//Only the master
+	if(rank == 0){
+		int linesPerWorker = nLines / size;
+		//Distribution of lines amoung workers
+		for(int i = 1; i < size; i++){
+			int numLines = linesPerWorker + (i <= extra ? 1 : 0);
+			int firstLine;
+			//First line position
+			if(worker < extra) firstLine = (i - 1) * (linesPerWorker + 1);
+			else firstLine = extra * (linesPerWorker + 1) + (i - 1 - extra) * linesPerWorker;
+
+			MPI_Send(&ciphered[firstLine], numLines * nCharsPerLine, MPI_INT, i, TAG_WORK, MPI_COMM_WORLD);
+		}
+	}
+	//Workers code
+	if(rank != 0){
+		
+	}
+	
 	MPI_Finalize();
 	return 0;
 
