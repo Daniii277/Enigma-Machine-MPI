@@ -113,35 +113,41 @@ int main(int argc, char* argv[]){
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	
-		int linesPerWorker = nLines / (size - 1);
-		int local_numLines;
-    	int local_firstLine;
+		int linesPerWorker = nLines / size;
+		int extra = nLines % size;
 
-		int local_ciphered[local_numLines][nCharsPerLine];
-		MPI_Recv(&local_ciphered[0][0],local_numLines * nCharsPerLine, MPI_INT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		int local_deciphered[local_numLines][nCharsPerLine];
-		
-		for (int idx = 0; idx < local_numLines; idx++){
-			for (int lineKey = (int)pow(10, nRotors - 1); lineKey < (int)pow(10, nRotors); lineKey++){
-				int p_deciphered[nCharsPerLine];
-				decipher(local_ciphered[idx], lineKey, p_deciphered);
-				
-				char decipheredLine[nCharsPerLine];
-				for (int c = 0; c < nCharsPerLine; c++){
-					decipheredLine[c] = (char)p_deciphered[c];
-				}
-				
-				char stringKey[nRotors + 1];
-				snprintf(stringKey, sizeof(stringKey), "%d", lineKey);
-				if (!strncmp(stringKey, decipheredLine, nRotors)) {
-                    for (int c = 0; c < nCharsPerLine; c++)
-                        local_deciphered[idx][c] = p_deciphered[c];
-                    printf("[worker %d] Linea %d descifrada con clave %d\n",
-                           rank, local_firstLine + idx, lineKey);
-                    break;
-                }
-			}
+		if(extra == 0){
+			int local_ciphered[local_numLines][nCharsPerLine];
+			//MPI_Scatter();
+		}else{
+			//MPI_Scatterv();
 		}
+
+		int local_deciphered[local_numLines][nCharsPerLine];
+		int keyMin = (int)pow(10, nRotors - 1);
+    int keyMax = (int)pow(10, nRotors);
+
+    for (int idx = 0; idx < local_numLines; idx++) {
+        for (int lineKey = keyMin; lineKey < keyMax; lineKey++) {
+            int p_deciphered[nCharsPerLine];
+            decipher(local_ciphered[idx], lineKey, p_deciphered);
+
+            char decipheredLine[nCharsPerLine];
+            for (int c = 0; c < nCharsPerLine; c++)
+                decipheredLine[c] = (char)p_deciphered[c];
+
+            char stringKey[nRotors + 1];
+            snprintf(stringKey, sizeof(stringKey), "%d", lineKey);
+
+            if (!strncmp(stringKey, decipheredLine, nRotors)) {
+                for (int c = 0; c < nCharsPerLine; c++)
+                    local_deciphered[idx][c] = p_deciphered[c];
+                printf("[rank %d] Linea %d descifrada con clave %d\n",
+                       rank, displs[rank] / nCharsPerLine + idx, lineKey);
+                break;
+            }
+        }
+	}
 	
 	
 	//Print result to console
