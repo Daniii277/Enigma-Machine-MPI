@@ -107,50 +107,55 @@ int ciphered[nLines][nCharsPerLine] = { //[9][33] - 2 rotores
 };
 
 
-void enigma(){
-	printf("ESTO ES LA ENTRADA: \n");
-	printNumbersAsString(ciphered);
-	printf("\n");
-	printf("\n");
+int main(int argc, char* argv[]){
+	MPI_Init(&argc, &argv);
+	int rank, size;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	
+		int linesPerWorker = nLines / (size - 1);
+		int local_numLines;
+    	int local_firstLine;
 
-	printf("DESCIFRANDO...: \n");
-	int deciphered[nLines][nCharsPerLine];
-	for (int idx = 0; idx < nLines; idx++)
-	{
-		for (int lineKey = (int)pow(10, nRotors - 1); lineKey < (int)pow(10, nRotors); lineKey++)
-		{
-			int* p_deciphered = decipher(ciphered[idx], lineKey);
-			
-			char decipheredLine[nCharsPerLine];
-			for (int idx = 0; idx < nCharsPerLine; idx++)
-			{
-				decipheredLine[idx] = p_deciphered[idx];
-			}
-			
-			char stringKey[nRotors + 1];
-			sprintf_s(stringKey, "%d", lineKey);
-			if (!strncmp(stringKey, decipheredLine, nRotors))
-			{
-				for (int idx2 = 0; idx2 < nCharsPerLine; idx2++)
-				{
-					deciphered[idx][idx2] = decipheredLine[idx2];
+		int local_ciphered[local_numLines][nCharsPerLine];
+		MPI_Recv(&local_ciphered[0][0],local_numLines * nCharsPerLine, MPI_INT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		int local_deciphered[local_numLines][nCharsPerLine];
+		
+		for (int idx = 0; idx < local_numLines; idx++){
+			for (int lineKey = (int)pow(10, nRotors - 1); lineKey < (int)pow(10, nRotors); lineKey++){
+				int p_deciphered[nCharsPerLine];
+				decipher(local_ciphered[idx], lineKey, p_deciphered);
+				
+				char decipheredLine[nCharsPerLine];
+				for (int c = 0; c < nCharsPerLine; c++){
+					decipheredLine[c] = (char)p_deciphered[c];
 				}
-				printf("Descifrada linea %d con clave %d\n", idx, lineKey);
-				break;
+				
+				char stringKey[nRotors + 1];
+				snprintf(stringKey, sizeof(stringKey), "%d", lineKey);
+				if (!strncmp(stringKey, decipheredLine, nRotors)) {
+                    for (int c = 0; c < nCharsPerLine; c++)
+                        local_deciphered[idx][c] = p_deciphered[c];
+                    printf("[worker %d] Linea %d descifrada con clave %d\n",
+                           rank, local_firstLine + idx, lineKey);
+                    break;
+                }
 			}
 		}
+	
+	
+	//Print result to console
+	if(rank == 0){
+		printf("TEXTO DESCIFRADO:\n\n");
+        for (int i = 0; i < nLines; i++) {
+            char line[nCharsPerLine + 1];
+            for (int c = 0; c < nCharsPerLine; c++)
+                line[c] = (char)finalMessage[i][c];
+            line[nCharsPerLine] = '\0';
+            printf("%s\n", line);
+        }
+
 	}
-	
-	printf("\n");
-	printf("ESTO ES LA SALIDA:\n");
-	printNumbersAsString(deciphered);
-	printf("\n");
-	printf("\n");
-}
-
-int main(int argc, char* argv[]){
-
-	enigma();
-	
+	MPI_Finalize();
 	return 0;
 }
