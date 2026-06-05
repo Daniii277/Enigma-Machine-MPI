@@ -115,19 +115,20 @@ int main(int argc, char* argv[]){
 	
 	int linesPerWorker = nLines / size;
 	int extra = nLines % size;
-	int local_numLines = linesPerProc + (rank < extra ? 1 : 0);
+	int local_numLines = linesPerWorker + (rank < extra ? 1 : 0);
+	
+	int local_ciphered[local_numLines][nCharsPerLine];
+
 	if(extra == 0){
-		int local_ciphered[local_numLines][nCharsPerLine];
 		MPI_Scatter(ciphered, local_numLines * nCharsPerLine, MPI_INT, &local_ciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WORLD);
 	}else{
-		int local_ciphered[local_numLines][nCharsPerLine];
 		int sendcounts[size];
 		int displs[size];
 		for (int i = 0; i < size; i++) {
-			sendcounts[i] = (linesPerProc + (i < extra ? 1 : 0)) * nCharsPerLine;
+			sendcounts[i] = (linesPerWorker + (i < extra ? 1 : 0)) * nCharsPerLine;
 			displs[i] = (i == 0) ? 0 : displs[i-1] + sendcounts[i-1];
 		}
-		MPI_Scatterv(ciphered, local_numLines * nCharsPerLine, MPI_INT, &local_ciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Scatterv(ciphered,sendcounts, displs, MPI_INT, &local_ciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WORLD);
 	}
 
 	int local_deciphered[local_numLines][nCharsPerLine];
@@ -155,6 +156,10 @@ int main(int argc, char* argv[]){
             }
         }
 	}
+	//Result sending with Gather
+	int finalMessage[nLines][nCharsPerLine];
+
+	MPI_Gather(&local_deciphered, local_numLines * nCharsPerLine, MPI_INT, finalMessage, local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WOLRD);
 	
 	
 	//Print result to console
