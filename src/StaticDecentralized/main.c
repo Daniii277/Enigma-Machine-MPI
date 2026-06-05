@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <mpi.h>
+#include <math.h>
+#include <string.h>
 #include "../include/enigma.h"
 
 
@@ -118,16 +120,16 @@ int main(int argc, char* argv[]){
 	int local_numLines = linesPerWorker + (rank < extra ? 1 : 0);
 	
 	int local_ciphered[local_numLines][nCharsPerLine];
+	int sendcounts[size];
+	int displs[size];
+	for (int i = 0; i < size; i++) {
+		sendcounts[i] = (linesPerWorker + (i < extra ? 1 : 0)) * nCharsPerLine;
+		displs[i] = (i == 0) ? 0 : displs[i-1] + sendcounts[i-1];
+	}
 
 	if(extra == 0){
 		MPI_Scatter(ciphered, local_numLines * nCharsPerLine, MPI_INT, &local_ciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WORLD);
 	}else{
-		int sendcounts[size];
-		int displs[size];
-		for (int i = 0; i < size; i++) {
-			sendcounts[i] = (linesPerWorker + (i < extra ? 1 : 0)) * nCharsPerLine;
-			displs[i] = (i == 0) ? 0 : displs[i-1] + sendcounts[i-1];
-		}
 		MPI_Scatterv(ciphered,sendcounts, displs, MPI_INT, &local_ciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WORLD);
 	}
 
@@ -150,8 +152,6 @@ int main(int argc, char* argv[]){
             if (!strncmp(stringKey, decipheredLine, nRotors)) {
                 for (int c = 0; c < nCharsPerLine; c++)
                     local_deciphered[idx][c] = p_deciphered[c];
-                printf("[rank %d] Linea %d descifrada con clave %d\n",
-                       rank, displs[rank] / nCharsPerLine + idx, lineKey);
                 break;
             }
         }
@@ -159,8 +159,11 @@ int main(int argc, char* argv[]){
 	//Result sending with Gather
 	int finalMessage[nLines][nCharsPerLine];
 
-	MPI_Gather(&local_deciphered, local_numLines * nCharsPerLine, MPI_INT, finalMessage, local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WOLRD);
-	
+	if (extra == 0) {
+    MPI_Gather(&local_deciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, finalMessage, local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WORLD);
+	} else {
+    MPI_Gatherv(&local_deciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, finalMessage, sendcounts, displs, MPI_INT, 0, MPI_COMM_WORLD);
+	}
 	
 	//Print result to console
 	if(rank == 0){
