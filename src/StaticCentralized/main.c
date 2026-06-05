@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include <mpi.h>
+#include <math.h>
 #include <string.h>
 #include "../include/enigma.h"
 
 #define TAG_WORK 1
-#define TAG_INFO 2
-#define TAG_RESULT 3
-#define TAG_STOP 4
+#define TAG_RESULT 2
 //int ciphered[nLines][nCharsPerLine] = { //[51][155] 8 rotores
 //	{92,94,107,113,126,129,141,148,147,183,228,158,250,246,255,273,198,286,279,302,299,320,258,254,349,339,278,366,376,371,393,387,404,418,342,415,358,446,439,464,455,474,482,483,498,430,508,528,519,539,539,565,565,576,577,510,584,591,617,611,618,558,645,652,582,635,646,647,614,692,709,720,646,719,662,746,743,768,765,771,710,786,791,818,807,833,827,850,774,866,869,798,875,902,906,912,903,913,938,862,950,957,973,963,984,910,1001,1006,1003,1009,1034,1040,1051,1051,982,1060,1067,1071,1098,1107,1112,1107,1129,1054,1141,1140,1078,1123,1131,1141,1110,1201,1199,1205,1220,1215,1234,1249,1174,1265,1269,1198,1271,1297,1222,1314,1317,1246,1327,1339,1350,1360,1365,1380,1371},
 //	{69,76,89,95,99,108,115,128,128,207,203,208,147,238,243,240,248,255,195,282,281,219,293,317,308,324,337,267,358,356,362,377,372,391,323,411,421,426,422,432,454,462,460,473,474,425,452,511,435,523,533,528,550,544,561,575,511,507,599,595,600,539,602,624,639,638,651,587,672,672,695,691,706,703,643,723,724,750,675,749,760,768,785,715,810,804,815,815,831,852,771,864,870,864,871,811,903,906,835,912,934,943,940,952,948,975,968,907,999,995,1000,939,1027,1034,1050,1040,1061,987,1078,1083,1080,1086,1111,1117,1128,1128,1073,1107,1154,1170,1160,1185,1176,1197,1135,1131,1223,1219,1224,1163,1255,1261,1252,1263,1276,1295,1292,1306,1313,1308,1327,1259,1322,1344,1359},
@@ -111,56 +110,16 @@ int ciphered[nLines][nCharsPerLine] = { //[9][33] - 2 rotores
 };
 
 
-/*void enigma(){
-	printf("ESTO ES LA ENTRADA: \n");
-	printNumbersAsString(ciphered);
-	printf("\n");
-	printf("\n");
-
-	printf("DESCIFRANDO...: \n");
-	int deciphered[nLines][nCharsPerLine];
-	for (int idx = 0; idx < nLines; idx++)
-	{
-		for (int lineKey = (int)pow(10, nRotors - 1); lineKey < (int)pow(10, nRotors); lineKey++)
-		{
-			int* p_deciphered = decipher(ciphered[idx], lineKey);
-			
-			char decipheredLine[nCharsPerLine];
-			for (int idx = 0; idx < nCharsPerLine; idx++)
-			{
-				decipheredLine[idx] = p_deciphered[idx];
-			}
-			
-			char stringKey[nRotors + 1];
-			sprintf_s(stringKey, "%d", lineKey);
-			if (!strncmp(stringKey, decipheredLine, nRotors))
-			{
-				for (int idx2 = 0; idx2 < nCharsPerLine; idx2++)
-				{
-					deciphered[idx][idx2] = decipheredLine[idx2];
-				}
-				printf("Descifrada linea %d con clave %d\n", idx, lineKey);
-				break;
-			}
-		}
-	}
-	
-	printf("\n");
-	printf("ESTO ES LA SALIDA:\n");
-	printNumbersAsString(deciphered);
-	printf("\n");
-	printf("\n");
-}*/
 
 
 int main(int argc, char* argv[]){
-	MPI_init(argc, argv);
+	MPI_Init(&argc, &argv);
 	int rank, size;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	//Only the master
 	if(rank == 0){
-		int linesPerWorker = nLines / size - 1;
+		int linesPerWorker = nLines / (size - 1);
 		int extra = nLines % (size - 1);
 		//Distribution of lines amoung workers
 		for(int i = 1; i < size; i++){
@@ -171,7 +130,6 @@ int main(int argc, char* argv[]){
 			else firstLine = extra * (linesPerWorker + 1) + (i - 1 - extra) * linesPerWorker;
 
 			MPI_Send(&ciphered[firstLine][0], numLines * nCharsPerLine, MPI_INT, i, TAG_WORK, MPI_COMM_WORLD);
-			
 		}
 
 		//Lines reception
@@ -195,7 +153,6 @@ int main(int argc, char* argv[]){
             printf("%s\n", line);
         }
 
-
 	}else{	//Workers code
 		int linesPerWorker = nLines / (size - 1);
     	int extra = nLines % (size - 1);
@@ -204,7 +161,7 @@ int main(int argc, char* argv[]){
     	int local_firstLine = (rank <= extra) ? (rank - 1) * (linesPerWorker + 1) : extra * (linesPerWorker + 1) + (rank - 1 - extra) * linesPerWorker;
 
 		int local_ciphered[local_numLines][nCharsPerLine];
-		MPI_Recv(&local_ciphered,local_numLines * nCharsPerLine, MPI_INT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		MPI_Recv(&local_ciphered[0][0],local_numLines * nCharsPerLine, MPI_INT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		int local_deciphered[local_numLines][nCharsPerLine];
 		
 		for (int idx = 0; idx < local_numLines; idx++){
@@ -228,10 +185,9 @@ int main(int argc, char* argv[]){
                 }
 			}
 		}
-		MPI_Send(&deciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
+		MPI_Send(&local_deciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
 	}
 	
 	MPI_Finalize();
 	return 0;
-
 }
