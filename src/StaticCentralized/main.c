@@ -227,8 +227,8 @@ int main(int argc, char* argv[]){
                     break;
                 }
 			}
-			MPI_Send(&deciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
 		}
+		MPI_Send(&deciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
 	}
 	
 	MPI_Finalize();
