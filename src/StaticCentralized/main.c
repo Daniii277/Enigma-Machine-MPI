@@ -160,24 +160,24 @@ int main(int argc, char* argv[]){
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	//Only the master
 	if(rank == 0){
-		int linesPerWorker = nLines / size;
+		int linesPerWorker = nLines / size - 1;
+		int extra = nLines % (size - 1);
 		//Distribution of lines amoung workers
 		for(int i = 1; i < size; i++){
 			int numLines = linesPerWorker + (i <= extra ? 1 : 0);
 			int firstLine;
 			//First line position
-			if(i < extra) firstLine = (i - 1) * (linesPerWorker + 1);
+			if(i <= extra) firstLine = (i - 1) * (linesPerWorker + 1);
 			else firstLine = extra * (linesPerWorker + 1) + (i - 1 - extra) * linesPerWorker;
 
-			MPI_Send(&numLines, 1, MPI_INT, i, TAG_INFO, MPI_COMM_WORLD);
-			MPI_Send(&ciphered[firstLine], numLines * nCharsPerLine, MPI_INT, i, TAG_WORK, MPI_COMM_WORLD);
+			MPI_Send(&ciphered[firstLine][0], numLines * nCharsPerLine, MPI_INT, i, TAG_WORK, MPI_COMM_WORLD);
 			
 		}
 
 		//Lines reception
 		int finalMessage[nLines][nCharsPerLine];
 		MPI_Status status;
-		for(int i = 0; i < size; i++){
+		for(int i = 1; i < size; i++){
 			int numLines  = linesPerWorker + (i <= extra ? 1 : 0);
             int firstLine = (i <= extra) ? (i - 1) * (linesPerWorker + 1) : extra * (linesPerWorker + 1) + (i - 1 - extra) * linesPerWorker;
 			//Master  receives lines in order
@@ -197,12 +197,15 @@ int main(int argc, char* argv[]){
 
 
 	}else{	//Workers code
-		int local_numLines;
-		MPI_Recv(&local_numLines, 1, MPI_INT, 0, TAG_INFO, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		int linesPerWorker = nLines / (size - 1);
+    	int extra = nLines % (size - 1);
+
+		int local_numLines = linesPerWorker + (rank <= extra ? 1 : 0);
+    	int local_firstLine = (rank <= extra) ? (rank - 1) * (linesPerWorker + 1) : extra * (linesPerWorker + 1) + (rank - 1 - extra) * linesPerWorker;
+
 		int local_ciphered[local_numLines][nCharsPerLine];
-		int local_messageSize = local_numLines * nCharsPerLine;
-		MPI_Recv(&local_ciphered,local_messageSize, MPI_INT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		int deciphered[local_numLines][nCharsPerLine];
+		MPI_Recv(&local_ciphered,local_numLines * nCharsPerLine, MPI_INT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		int local_deciphered[local_numLines][nCharsPerLine];
 		
 		for (int idx = 0; idx < local_numLines; idx++){
 			for (int lineKey = (int)pow(10, nRotors - 1); lineKey < (int)pow(10, nRotors); lineKey++){
@@ -210,12 +213,12 @@ int main(int argc, char* argv[]){
 				decipher(local_ciphered[idx], lineKey, p_deciphered);
 				
 				char decipheredLine[nCharsPerLine];
-				for (int idx = 0; idx < nCharsPerLine; idx++){
-					decipheredLine[idx] = (char)p_deciphered[idx];
+				for (int c = 0; c < nCharsPerLine; c++){
+					decipheredLine[c] = (char)p_deciphered[c];
 				}
 				
 				char stringKey[nRotors + 1];
-				sprintf_s(stringKey, "%d", lineKey);
+				snprintf(stringKey, sizeof(stringKey), "%d", lineKey);
 				if (!strncmp(stringKey, decipheredLine, nRotors)) {
                     for (int c = 0; c < nCharsPerLine; c++)
                         local_deciphered[idx][c] = p_deciphered[c];
