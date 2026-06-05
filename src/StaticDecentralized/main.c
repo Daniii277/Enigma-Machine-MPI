@@ -113,18 +113,25 @@ int main(int argc, char* argv[]){
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	
-		int linesPerWorker = nLines / size;
-		int extra = nLines % size;
-
-		if(extra == 0){
-			int local_ciphered[local_numLines][nCharsPerLine];
-			//MPI_Scatter();
-		}else{
-			//MPI_Scatterv();
+	int linesPerWorker = nLines / size;
+	int extra = nLines % size;
+	int local_numLines = linesPerProc + (rank < extra ? 1 : 0);
+	if(extra == 0){
+		int local_ciphered[local_numLines][nCharsPerLine];
+		MPI_Scatter(ciphered, local_numLines * nCharsPerLine, MPI_INT, &local_ciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WORLD);
+	}else{
+		int local_ciphered[local_numLines][nCharsPerLine];
+		int sendcounts[size];
+		int displs[size];
+		for (int i = 0; i < size; i++) {
+			sendcounts[i] = (linesPerProc + (i < extra ? 1 : 0)) * nCharsPerLine;
+			displs[i] = (i == 0) ? 0 : displs[i-1] + sendcounts[i-1];
 		}
+		MPI_Scatterv(ciphered, local_numLines * nCharsPerLine, MPI_INT, &local_ciphered[0][0], local_numLines * nCharsPerLine, MPI_INT, 0, MPI_COMM_WORLD);
+	}
 
-		int local_deciphered[local_numLines][nCharsPerLine];
-		int keyMin = (int)pow(10, nRotors - 1);
+	int local_deciphered[local_numLines][nCharsPerLine];
+	int keyMin = (int)pow(10, nRotors - 1);
     int keyMax = (int)pow(10, nRotors);
 
     for (int idx = 0; idx < local_numLines; idx++) {
